@@ -41,7 +41,8 @@
         <source-file src="src/ios/CPGSStore.swift"/>
         <source-file src="src/ios/CPGSGeofenceStore.swift"/>
         <source-file src="src/ios/CPGSRegisterStore.swift"/>
-        <source-file src="src/ios/CPGSManager.swift"/>
+        <source-file src="src/ios/CPGSManagerNotification.swift"/>
+        <source-file src="src/ios/CPGSManagerGeofence.swift"/>
         <source-file src="src/ios/CPGSPlugin.swift"/>
         <framework src="libsqlite3.dylib"/>
         <framework src="WebKit.framework" weak="true" />

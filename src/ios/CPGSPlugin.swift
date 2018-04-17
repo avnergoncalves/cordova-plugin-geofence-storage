@@ -17,35 +17,32 @@ func log(_ messages: [String]) {
     }
 }
 
-@available(iOS 8.0, *)
+@available(iOS 10.0, *)
 @objc(CPGSPlugin) class CPGSPlugin : CDVPlugin {
 
-    lazy var geofenceManager = CPGSManager()
+    lazy var notificationManager = CPGSManagerNotification()
+    lazy var geofenceManager = CPGSManagerGeofence()
     let priority = DispatchQoS.QoSClass.default
 
     override func pluginInitialize () {
         log("GeofencePlugin: pluginInitialize")
 
-        self.geofenceManager = CPGSManager()
-
-        /*NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(CGPGeofencePlugin.didReceiveLocalNotification(_:)),
-            name: NSNotification.Name(rawValue: "CDVLocalNotification"),
-            object: nil
-        )*/
-
-        /*NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(CGPGeofencePlugin.didReceiveTransition(_:)),
-            name: NSNotification.Name(rawValue: "handleTransition"),
-            object: nil
-        )*/
+        self.notificationManager = CPGSManagerNotification()
+        self.geofenceManager = CPGSManagerGeofence()
     }
 
     func onReady(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: onReady")
 
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
+    }
+    
+    func clearBadge(_ command: CDVInvokedUrlCommand) {
+        log("GeofencePlugin: clearBadge")
+        
+        CPGSManagerNotification.clearBadge()
+        
         let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
         self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
@@ -76,16 +73,10 @@ func log(_ messages: [String]) {
 
     func checkRequirements(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: checkRequirements")
+        let (isOk, _, _) = self.geofenceManager.checkRequirements()
 
-        DispatchQueue.global(qos: self.priority).async {
-            // do some task
-            let (isOk, _, _) = self.geofenceManager.checkRequirements()
-
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: isOk)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
-        }
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: isOk)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func requestAlwaysAuthorization(_ command: CDVInvokedUrlCommand) {
@@ -93,173 +84,119 @@ func log(_ messages: [String]) {
 
         DispatchQueue.global(qos: self.priority).async {
             // do some task
-            self.geofenceManager.requestAlwaysAuthorization()
-
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
+            self.geofenceManager.callbackDidChangeAuthorization = { () in
+                DispatchQueue.main.async {
+                    let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+                    self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
+                }
             }
+            
+            self.geofenceManager.requestAlwaysAuthorization()
         }
     }
 
     func registerUserNotificationSettings(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: registerUserNotificationSettings")
-
-        DispatchQueue.global(qos: self.priority).async {
-            // do some task
-            self.geofenceManager.registerUserNotificationSettings()
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        
+        CPGSManagerNotification.registerUserNotificationSettings() { () in
+            let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+            self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
         }
     }
 
     func getCurrentLocation(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: getCurrentLocation")
+        let currentlocation = self.geofenceManager.getCurrentLocation()!
+        let currentlocationJsonString = currentlocation.description
 
-        DispatchQueue.global(qos: self.priority).async {
-
-            let currentlocation = self.geofenceManager.getCurrentLocation()!
-            let currentlocationJsonString = currentlocation.description
-
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: currentlocationJsonString)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
-        }
-    }
-
-    func ping(_ command: CDVInvokedUrlCommand) {
-        log("GeofencePlugin: ping")
-        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-        commandDelegate!.send(pluginResult, callbackId: command.callbackId)
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: currentlocationJsonString)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func addOrUpdateRegisters(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: addOrUpdateRegisters")
 
-        DispatchQueue.global(qos: priority).async {
-            // do some task
-            for res in command.arguments {
-                self.geofenceManager.addOrUpdateRegisters(JSON(res))
-            }
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        for res in command.arguments {
+            self.geofenceManager.addOrUpdateRegisters(JSON(res))
         }
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func addOrUpdateGeofences(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: addOrUpdateGeofences")
-
-        DispatchQueue.global(qos: priority).async {
-            // do some task
-            for geo in command.arguments {
-                self.geofenceManager.addOrUpdateGeofence(JSON(geo))
-            }
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        for geo in command.arguments {
+            self.geofenceManager.addOrUpdateGeofence(JSON(geo))
         }
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func getRegistersByGeofence(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: getRegistersByGeofence")
+        let geofences:[JSON]? = self.geofenceManager.getRegistersByGeofence(command.arguments[0] as! String)
 
-        DispatchQueue.global(qos: self.priority).async {
-
-            let geofences:[JSON]? = self.geofenceManager.getRegistersByGeofence(command.arguments[0] as! String)
-
-            var geofencesJsonString: String = "[]"
-            if(geofences != nil){
-                geofencesJsonString = (geofences?.description)!
-            }
-
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: geofencesJsonString)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        var geofencesJsonString: String = "[]"
+        if(geofences != nil){
+            geofencesJsonString = (geofences?.description)!
         }
+
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: geofencesJsonString)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func getRegisters(_ command: CDVInvokedUrlCommand) {
         log("GeofencePlugin: getRegisters")
-
-        DispatchQueue.global(qos: self.priority).async {
-            let registers = self.geofenceManager.getRegisters()!
-            let registersJsonString = registers.description
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: registersJsonString)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
-        }
+        let registers = self.geofenceManager.getRegisters()!
+        let registersJsonString = registers.description
+            
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: registersJsonString)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func getWatched(_ command: CDVInvokedUrlCommand) {
-        DispatchQueue.global(qos: self.priority).async {
-            let watched:[JSON]? = self.geofenceManager.getWatchedGeoNotifications()
-            var watchedJsonString: String = "[]"
-            if(watched != nil){
-                watchedJsonString = (watched?.description)!
-            }
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: watchedJsonString)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        let watched:[JSON]? = self.geofenceManager.getWatchedGeoNotifications()
+        var watchedJsonString: String = "[]"
+        if(watched != nil){
+            watchedJsonString = (watched?.description)!
         }
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: watchedJsonString)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func getGeofenceById(_ command: CDVInvokedUrlCommand) {
-        DispatchQueue.global(qos: self.priority).async {
-
-            let geofence:JSON? = self.geofenceManager.getGeofenceById(command.arguments[0] as! String)
-            var geofenceJsonString: String = "null"
-            if(geofence != nil){
-                geofenceJsonString = (geofence?.description)!
-            }
-
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: geofenceJsonString)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        let geofence:JSON? = self.geofenceManager.getGeofenceById(command.arguments[0] as! String)
+        var geofenceJsonString: String = "null"
+        if(geofence != nil){
+            geofenceJsonString = (geofence?.description)!
         }
+
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: geofenceJsonString)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func removeRegister(_ command: CDVInvokedUrlCommand) {
-        DispatchQueue.global(qos: self.priority).async {
-            for id in command.arguments {
-                self.geofenceManager.removeRegister(id as! String)
-            }
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        for id in command.arguments {
+            self.geofenceManager.removeRegister(id as! String)
         }
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func remove(_ command: CDVInvokedUrlCommand) {
-        DispatchQueue.global(qos: self.priority).async {
-            for id in command.arguments {
-                self.geofenceManager.removeGeofence(id as! String)
-            }
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
+        for id in command.arguments {
+            self.geofenceManager.removeGeofence(id as! String)
         }
+            
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func removeAll(_ command: CDVInvokedUrlCommand) {
-        DispatchQueue.global(qos: self.priority).async {
-            self.geofenceManager.removeAllGeofences()
-            DispatchQueue.main.async {
-                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-                self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
-            }
-        }
+        self.geofenceManager.removeAllGeofences()
+        
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
+        self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
 
     func didReceiveTransition (_ notification: Notification) {

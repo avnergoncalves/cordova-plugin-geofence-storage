@@ -83,6 +83,10 @@ var GeofenceStorage = {
 
   getWatched: function() {
     return execPromise("GeofenceStorage", "getWatched", []);
+  },
+
+  clearBadge: function() {
+    return execPromise("GeofenceStorage", "clearBadge", []);
   }
 
 }
@@ -95,6 +99,18 @@ channel.onCordovaReady.subscribe(function () {
     'GeofenceStorage', 'onReady', []
   );
 
+  GeofenceStorage.clearBadge();
+
+});
+
+// Clear badge on app resume if autoClear is set to true
+channel.onResume.subscribe(function () {
+    GeofenceStorage.clearBadge();
+});
+
+// Clear badge on app resume if autoClear is set to true
+channel.onActivated.subscribe(function () {
+    GeofenceStorage.clearBadge();
 });
 
 module.exports = GeofenceStorage;

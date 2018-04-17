@@ -32,6 +32,10 @@ For PhoneGap projects
 
 `<preference name="swift-version" value="2.3" />`
 
+# Install
+
+`ionic cordova plugins add https://github.com/avnergoncalves/cordova-plugin-geofence-storage.git`
+
 # Using the plugin
 
 Cordova initialize plugin to `window.GeofenceStorage` object.
