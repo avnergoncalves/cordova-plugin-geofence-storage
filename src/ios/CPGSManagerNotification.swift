@@ -36,17 +36,18 @@ class CPGSManagerNotification : NSObject, UNUserNotificationCenterDelegate {
         center.add(request!)
     }
     
-    static func registerUserNotificationSettings(completion: @escaping () -> ()) {
+    static func registerUserNotificationSettings(completion: @escaping (_ granted: Bool) -> ()) {
         log("CPGSManagerNotification: registerUserNotificationSettings")
-         // Correct
-        UNUserNotificationCenter.current().requestAuthorization(options: [.sound, .alert, .badge]) { (granted, error) in
+        
+        UNUserNotificationCenter.current().requestAuthorization(options: [.sound, .alert, .badge]) {
+            (granted, error) in
             if error == nil{
                 DispatchQueue.main.async {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
-                
-                completion()
             }
+            
+            completion(granted)
         }
     }
 

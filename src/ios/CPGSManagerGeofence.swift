@@ -6,6 +6,7 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
     let storeRegister = CPGSRegisterStore()
     
     var callbackDidChangeAuthorization: (() -> Void)? = nil
+    var callbackdidUpdateLocations: ((_ locations: CLLocation) -> Void)? = nil
     
     override init() {
         super.init()
@@ -15,21 +16,16 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
         self.locationManager.allowsBackgroundLocationUpdates = true
     }
     
-    func getCurrentLocation() -> JSON? {
+    func getCurrentLocation(complete: @escaping ((_ locations: CLLocation) -> Void)) -> Void {
         log("GeofenceManager: getCurrentLocation")
         
-        let currentLocation = self.locationManager.location
-        
-        var data = Dictionary<String, String>()
-        data["latitude"] = currentLocation?.coordinate.latitude.description
-        data["longitude"] = currentLocation?.coordinate.longitude.description
-        
-        return JSON(data)
+        self.callbackdidUpdateLocations = complete
+        self.locationManager.startUpdatingLocation()
     }
     
-    func requestAlwaysAuthorization() {
+    func requestAlwaysAuthorization(complete: @escaping (() -> Void)) {
         log("GeofenceManager: requestAlwaysAuthorization")
-        
+        self.callbackDidChangeAuthorization = complete
         self.locationManager.requestAlwaysAuthorization()
     }
     
@@ -101,8 +97,8 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
         return self.storeRegister.getAll()
     }
     
-    func getWatchedGeoNotifications() -> [JSON]? {
-        log("GeofenceManager: getWatchedGeoNotifications")
+    func getGeofences() -> [JSON]? {
+        log("GeofenceManager: getGeofences")
         return self.store.getAll()
     }
     
@@ -123,13 +119,13 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
         return nil
     }
     
-    func removeRegister(_ id: String) {
-        log("GeofenceManager: removeRegister")
+    func removeRegisters(_ id: String) {
+        log("GeofenceManager: removeRegisters")
         self.storeRegister.remove(id)
     }
     
     func removeGeofence(_ id: String) {
-        log("GeofenceManager: removeGeoNotification")
+        log("GeofenceManager: removeGeofence")
         self.store.remove(id)
         let region = self.getMonitoredRegion(id)
         if (region != nil) {
@@ -182,6 +178,11 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         log("Update didUpdateLocations")
+        if(self.callbackdidUpdateLocations != nil){
+            self.callbackdidUpdateLocations!(locations.last!)
+            self.callbackdidUpdateLocations = nil
+            self.locationManager.stopUpdatingLocation()
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
@@ -217,13 +218,12 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
             
             var registerDetail:JSON
             var notificationDetail:JSON
-            var interval:Double
+            var interval:Double = geoNotification["notification"]["delay"].doubleValue * 60
             
             if(transitionType == 1){
                 registerDetail = geoNotification["storage"]["onEnter"]
                 notificationDetail = geoNotification["notification"]["onEnter"]
-                interval = 0.0 * 60
-                
+
                 if(ignoreInterval){
                     interval = 0.0
                 }
@@ -231,21 +231,22 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
             }else{
                 registerDetail = geoNotification["storage"]["onExit"]
                 notificationDetail = geoNotification["notification"]["onExit"]
-                interval = 0
                 
-                let lastedInserted:JSON? = self.storeRegister.getLastedInserted()
-                if(lastedInserted != nil){
-                    let dateFormatter = DateFormatter()
-                    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                    
-                    let nowDt = Date()
-                    let lastedInsertedDt = dateFormatter.date(from: lastedInserted!["created_at"].stringValue)
-                    let lastedInsertedDtAdd3m = lastedInsertedDt?.addingTimeInterval(0.0 * 60)
-                    
-                    if( nowDt < lastedInsertedDtAdd3m!){
-                        CPGSManagerNotification.removeAll()
-                        self.storeRegister.remove(lastedInserted!["id"].stringValue)
-                        return
+                if(!ignoreInterval){
+                    let lastedInserted:JSON? = self.storeRegister.getLastedInserted()
+                    if(lastedInserted != nil){
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                        
+                        let nowDt = Date()
+                        let lastedInsertedDt = dateFormatter.date(from: lastedInserted!["created_at"].stringValue)
+                        let lastedInsertedDtAddMinutes = lastedInsertedDt?.addingTimeInterval(interval)
+                        
+                        if( nowDt < lastedInsertedDtAddMinutes!){
+                            CPGSManagerNotification.removeAll()
+                            self.storeRegister.remove(lastedInserted!["id"].stringValue)
+                            return
+                        }
                     }
                 }
             }

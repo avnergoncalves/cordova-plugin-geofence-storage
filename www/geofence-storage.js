@@ -1,11 +1,5 @@
-var exec = require("cordova/exec");
+var exec    = require("cordova/exec");
 var channel = require('cordova/channel');
-
-var TransitionType = {
-    ENTER: 1,
-    EXIT: 2,
-    BOTH: 3,
-};
 
 function execPromise(pluginName, method, args) {
     return new Promise(function (resolve, reject) {
@@ -23,8 +17,8 @@ function execPromise(pluginName, method, args) {
 
 var GeofenceStorage = {
 
-  initialize: function() {
-    return execPromise("GeofenceStorage", "initialize", []);
+  _onReady: function() {
+    return execPromise("GeofenceStorage", "onReady", []);
   },
 
   checkRequirements: function() {
@@ -78,11 +72,19 @@ var GeofenceStorage = {
       ids = [ids];
     }
 
-    return execPromise("GeofenceStorage", "removeRegister", ids);
+    return execPromise("GeofenceStorage", "removeRegisters", ids);
   },
 
-  getWatched: function() {
-    return execPromise("GeofenceStorage", "getWatched", []);
+  removeGeofences: function(ids) {
+    if (!Array.isArray(ids)) {
+      ids = [ids];
+    }
+
+    return execPromise("GeofenceStorage", "removeGeofences", ids);
+  },
+
+  getGeofences: function() {
+    return execPromise("GeofenceStorage", "getGeofences", []);
   },
 
   clearBadge: function() {
@@ -91,26 +93,16 @@ var GeofenceStorage = {
 
 }
 
+// Bind events
 channel.onCordovaReady.subscribe(function () {
-
-  exec(
-    function(){channel.onCordovaInfoReady.fire();},
-    function(){console.log('[ERROR] Error initializing geofence storage: ' + e);},
-    'GeofenceStorage', 'onReady', []
+  GeofenceStorage._onReady().then(
+    function(){
+      channel.onCordovaInfoReady.fire();
+    },
+    function(){
+      console.log('[ERROR] Error initializing geofence storage: ' + e);
+    }
   );
-
-  GeofenceStorage.clearBadge();
-
-});
-
-// Clear badge on app resume if autoClear is set to true
-channel.onResume.subscribe(function () {
-    GeofenceStorage.clearBadge();
-});
-
-// Clear badge on app resume if autoClear is set to true
-channel.onActivated.subscribe(function () {
-    GeofenceStorage.clearBadge();
 });
 
 module.exports = GeofenceStorage;
