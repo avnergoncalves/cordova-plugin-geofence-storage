@@ -2,66 +2,79 @@
 class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificationCenterDelegate {
     let locationManager = CLLocationManager()
     
-    let store = CPGSGeofenceStore()
-    let storeRegister = CPGSRegisterStore()
-    
     var callbackDidChangeAuthorization: (() -> Void)? = nil
     var callbackdidUpdateLocations: ((_ locations: CLLocation) -> Void)? = nil
-    
+
     override init() {
         super.init()
-        
+
         self.locationManager.delegate = self
         self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
         self.locationManager.allowsBackgroundLocationUpdates = true
     }
-    
+
     func getCurrentLocation(complete: @escaping ((_ locations: CLLocation) -> Void)) -> Void {
         log("GeofenceManager: getCurrentLocation")
-        
         self.callbackdidUpdateLocations = complete
         self.locationManager.startUpdatingLocation()
     }
-    
+
     func requestAlwaysAuthorization(complete: @escaping (() -> Void)) {
         log("GeofenceManager: requestAlwaysAuthorization")
         self.callbackDidChangeAuthorization = complete
         self.locationManager.requestAlwaysAuthorization()
     }
-    
-    func addOrUpdateRegisters(_ registers: JSON) {
-        log("GeofenceManager: addOrUpdateRegisters")
-        self.storeRegister.save(registers)
-    }
-    
-    func addOrUpdateGeofence(_ geoNotification: JSON) {
-        log("GeofenceManager: addOrUpdate")
-        
-        // let (_, warnings, errors) = checkRequirements()
-        
-        // log(warnings)
-        // log(errors)
-        
-        let location = CLLocationCoordinate2DMake(
-            geoNotification["latitude"].doubleValue,
-            geoNotification["longitude"].doubleValue
-        )
-        
-        let radius = geoNotification["radius"].doubleValue as CLLocationDistance
-        let id = geoNotification["id"].stringValue
-        let region = CLCircularRegion(center: location, radius: radius, identifier: id)
-        
-        var transitionType = 0
-        if let i = geoNotification["transitionType"].int {
-            transitionType = i
+
+    func addOrUpdateGeofence(_ geo: NSDictionary, uid: String? = nil) {
+        log("GeofenceManager: addOrUpdatePoint")
+
+        let identifier = CPGSPointFirebase.sharedInstance.save(value: geo, uid: uid)
+
+        if let geofence = geo["geofence"] as? NSDictionary {
+
+            let location = geofence["location"] as? NSDictionary
+            let coordinate = CLLocationCoordinate2DMake(
+                location!["lat"] as! Double, location!["lng"] as! Double
+            )
+
+            let radius = geofence["radius"] as? CLLocationDistance
+            let region = CLCircularRegion(
+                center: coordinate, radius: radius!, identifier: identifier
+            )
+
+            var transitionType = 0
+            if let i = geofence["transitionType"] as? Int {
+                transitionType = i
+            }
+
+            region.notifyOnEntry = 0 != transitionType & 1
+            region.notifyOnExit = 0 != transitionType & 2
+
+            self.locationManager.startMonitoring(for: region)
         }
-        
-        region.notifyOnEntry = 0 != transitionType & 1
-        region.notifyOnExit = 0 != transitionType & 2
-        
-        //store
-        self.store.save(geoNotification)
-        self.locationManager.startMonitoring(for: region)
+
+    }
+
+    func getMonitoredRegion(_ uid: String) -> CLRegion? {
+        log("GeofenceManager: getMonitoredRegion")
+        for object in self.locationManager.monitoredRegions {
+            let region = object
+            if (region.identifier == uid) {
+                return region
+            }
+        }
+        return nil
+    }
+
+    func removeGeofenceByUID(_ uid: String) {
+        log("GeofenceManager: removeGeofence")
+        let region = self.getMonitoredRegion(uid)
+        if (region != nil) {
+            log("Stoping monitoring region \(uid)")
+            self.locationManager.stopMonitoring(for: region!)
+        }
+
+        CPGSPointFirebase.sharedInstance.remove(uid)
     }
     
     func checkRequirements() -> (Bool, [String], [String]) {
@@ -85,63 +98,6 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
         let ok = (errors.count == 0)
         
         return (ok, [String](), errors)
-    }
-    
-    func getRegistersByGeofence(_ geofenceId: String) -> [JSON]? {
-        log("GeofenceManager: getRegistersByGeofence")
-        return self.storeRegister.getByGeofence(geofenceId)
-    }
-    
-    func getRegisters() -> [JSON]? {
-        log("GeofenceManager: getRegisters")
-        return self.storeRegister.getAll()
-    }
-    
-    func getGeofences() -> [JSON]? {
-        log("GeofenceManager: getGeofences")
-        return self.store.getAll()
-    }
-    
-    func getGeofenceById(_ id:String) -> JSON? {
-        log("GeofenceManager: getGeofenceById")
-        return self.store.findById(id)
-    }
-    
-    func getMonitoredRegion(_ id: String) -> CLRegion? {
-        log("GeofenceManager: getMonitoredRegion")
-        for object in self.locationManager.monitoredRegions {
-            let region = object
-            
-            if (region.identifier == id) {
-                return region
-            }
-        }
-        return nil
-    }
-    
-    func removeRegisters(_ id: String) {
-        log("GeofenceManager: removeRegisters")
-        self.storeRegister.remove(id)
-    }
-    
-    func removeGeofence(_ id: String) {
-        log("GeofenceManager: removeGeofence")
-        self.store.remove(id)
-        let region = self.getMonitoredRegion(id)
-        if (region != nil) {
-            log("Stoping monitoring region \(id)")
-            self.locationManager.stopMonitoring(for: region!)
-        }
-    }
-    
-    func removeAllGeofences() {
-        log("GeofenceManager: removeAllGeoNotifications")
-        self.store.clear()
-        for object in self.locationManager.monitoredRegions {
-            let region = object
-            self.locationManager.stopMonitoring(for: region)
-            log("GeofenceManager: Stoping monitoring region \(region.identifier)")
-        }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -198,69 +154,116 @@ class CPGSManagerGeofence : NSObject, CLLocationManagerDelegate, UNUserNotificat
     func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
         log("State for region \(region.identifier)")
         
-        if let geo = store.findById(region.identifier) {
+        CPGSPointFirebase.sharedInstance.getByUID(uid: region.identifier, with: { (snapshot) in
+            let point = snapshot.value as? [String : AnyObject] ?? [:]
+            
             var transitionType = 0
-            if let i = geo["transitionType"].int {
+            if let i: Int = point["geofence"]!["transitionType"] as? Int {
                 transitionType = i
             }
+            
             if state == CLRegionState.inside && transitionType != 2 {
-                let countRegisterByGeo = self.storeRegister.countByGeofence(region.identifier)
-                if(countRegisterByGeo == 0){
-                    self.handleTransition(region, transitionType: 1, ignoreInterval: true)
-                }
+                CPGSRegisterFirebase.sharedInstance.getByPointUID(pointUID: region.identifier, with: {(snapshot) in
+                    let countRegisterByPoint = snapshot.childrenCount
+                    if(countRegisterByPoint == 0){
+                        self.handleTransition(region, transitionType: 1, ignoreInterval: true)
+                    }
+                })
             }
+        })
+
+    }
+    
+    private func saveAndNotify(
+        register: NSDictionary,
+        pointUID: String,
+        pointDesc: String,
+        notify:JSON?,
+        interval: Double
+    ) -> Void {
+        _ = CPGSRegisterFirebase.sharedInstance.save(value: register, pointUID: pointUID)
+        if var notify = notify {
+            notify["text"].stringValue = notify["text"].stringValue.replacingOccurrences(of: "{{description}}", with: pointDesc)
+            CPGSManagerNotification.notify(notify, interval: interval)
         }
     }
     
-    func handleTransition(_ region: CLRegion!, transitionType: Int, ignoreInterval:Bool = false) {
-        if var geoNotification = self.store.findById(region.identifier) {
-            geoNotification["transitionType"].int = transitionType
+    private func optimizeGeofence(pointUID: String, interval: Double, onExecute: @escaping () -> ()){
+        CPGSRegisterFirebase.sharedInstance.getLastedInserted(pointUID: pointUID, with: {(snapshot) in
+            let lastedInserted = snapshot.value as? [String : AnyObject] ?? [:]
             
-            var registerDetail:JSON
-            var notificationDetail:JSON
-            var interval:Double = geoNotification["notification"]["delay"].doubleValue * 60
-            
-            if(transitionType == 1){
-                registerDetail = geoNotification["storage"]["onEnter"]
-                notificationDetail = geoNotification["notification"]["onEnter"]
-
-                if(ignoreInterval){
-                    interval = 0.0
-                }
+            if(lastedInserted.count > 0){
+                let key = lastedInserted.keys.first!
                 
-            }else{
-                registerDetail = geoNotification["storage"]["onExit"]
-                notificationDetail = geoNotification["notification"]["onExit"]
-                
-                if(!ignoreInterval){
-                    let lastedInserted:JSON? = self.storeRegister.getLastedInserted()
-                    if(lastedInserted != nil){
-                        let dateFormatter = DateFormatter()
-                        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                        
-                        let nowDt = Date()
-                        let lastedInsertedDt = dateFormatter.date(from: lastedInserted!["created_at"].stringValue)
-                        let lastedInsertedDtAddMinutes = lastedInsertedDt?.addingTimeInterval(interval)
-                        
-                        if( nowDt < lastedInsertedDtAddMinutes!){
-                            CPGSManagerNotification.removeAll()
-                            self.storeRegister.remove(lastedInserted!["id"].stringValue)
-                            return
-                        }
+                if let t = lastedInserted[key]!["timestamp"] as? Double {
+                    let nowDt = Date()
+                    let lastedInsertedDt = Date(timeIntervalSince1970: (t/1000))
+                    let lastedInsertedDtAddMinutes = lastedInsertedDt.addingTimeInterval(interval)
+                    
+                    if(nowDt < lastedInsertedDtAddMinutes){
+                        CPGSManagerNotification.removeAll()
+                        CPGSRegisterFirebase.sharedInstance.remove(pointUID, uid: key)
+                        return
                     }
                 }
             }
             
-            registerDetail["geofence_id"].stringValue = geoNotification["id"].stringValue
-            registerDetail["owner"].stringValue = "CPGS"
-            registerDetail["extra"].stringValue = "{\"is_save\":false}"
-            addOrUpdateRegisters(registerDetail)
+            onExecute()
+        })
+    }
+    
+    func handleTransition(_ region: CLRegion!, transitionType: Int, ignoreInterval:Bool = false) {
+        CPGSPointFirebase.sharedInstance.getByUID(uid: region.identifier, with: { (snapshot) in
+            let point = snapshot.value as? [String : AnyObject] ?? [:]
             
-            notificationDetail["text"].stringValue = notificationDetail["text"].stringValue.replacingOccurrences(of: "{{description}}", with: geoNotification["description"].stringValue)
-            CPGSManagerNotification.notify(notificationDetail, interval: interval)
+            let delay:Double = (point["geofence"]!["delay"] as! Double) * 60
             
-            return
-        }
+            var notificationDetail:JSON? = nil
+            var interval = 0.0
+            
+            var register = [
+                "transition_type": transitionType.description,
+                "timestamp": ServerValue.timestamp()
+                ] as [String : Any]
+            
+            if(transitionType == 1){
+                register["description"] = point["geofence"]!["descOnEntry"] as? String
+                
+                if let notify = point["notification"]!["onEnter"] {
+                    notificationDetail = JSON(notify!)
+                }
+                
+                if(!ignoreInterval){
+                    interval = delay
+                }
+                
+                self.saveAndNotify(
+                    register: register as NSDictionary,
+                    pointUID: region.identifier,
+                    pointDesc: point["description"] as! String,
+                    notify: notificationDetail,
+                    interval: interval
+                )
+            }else{
+                register["description"] = point["geofence"]!["descOnExit"] as? String
+                
+                if let notify = point["notification"]!["onExit"] {
+                    notificationDetail = JSON(notify!)
+                }
+                
+                if(!ignoreInterval){
+                    self.optimizeGeofence(pointUID: region.identifier, interval: delay) { () in
+                        self.saveAndNotify(
+                            register: register as NSDictionary,
+                            pointUID: region.identifier,
+                            pointDesc: point["description"] as! String,
+                            notify: notificationDetail,
+                            interval: interval
+                        )
+                    }
+                }
+            }
+        })
     }
     
 }

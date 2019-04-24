@@ -6,4 +6,4 @@
 #import <Cordova/CDVAvailability.h>
 #import <CoreLocation/CoreLocation.h>
 #import <UserNotifications/UserNotifications.h>
-#import "sqlite3.h"
+@import Firebase;

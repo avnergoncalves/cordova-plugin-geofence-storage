@@ -1,95 +1,99 @@
 var exec    = require("cordova/exec");
 var channel = require('cordova/channel');
 
+const PLUGIN_NAME = "GeofenceStorage";
+
 function execPromise(pluginName, method, args) {
-    return new Promise(function (resolve, reject) {
-        exec(function (result) {
-                resolve(result);
-            },
-            function (reason) {
-                reject(reason);
-            },
-            pluginName,
-            method,
-            args);
-    });
+  return new Promise(function (resolve, reject) {
+    exec(function (result) {
+        resolve(result);
+      },
+      function (reason) {
+        reject(reason);
+      },
+      pluginName,
+      method,
+      args);
+  });
 }
 
 var GeofenceStorage = {
 
   _onReady: function() {
-    return execPromise("GeofenceStorage", "onReady", []);
+    return execPromise(PLUGIN_NAME, "onReady", []);
   },
+
+  /*INI AUTH FIREBASE*/
+  createUserFirebase: function(email, password) {
+    return execPromise(PLUGIN_NAME, "createUserFirebase", [email, password]);
+  },
+  signInFirebase: function(email, password) {
+    return execPromise(PLUGIN_NAME, "signInFirebase", [email, password]);
+  },
+  signOutFirebase: function() {
+    return execPromise(PLUGIN_NAME, "signOutFirebase", []);
+  },
+  isAuthFirebase: function() {
+    return execPromise(PLUGIN_NAME, "isAuthFirebase", []);
+  },
+  /*INI AUTH FIREBASE*/
 
   checkRequirements: function() {
-    return execPromise("GeofenceStorage", "checkRequirements", []);
+    return execPromise(PLUGIN_NAME, "checkRequirements", []);
   },
-
   registerUserNotificationSettings: function() {
-    return execPromise("GeofenceStorage", "registerUserNotificationSettings", []);
+    return execPromise(PLUGIN_NAME, "registerUserNotificationSettings", []);
   },
-
   requestAlwaysAuthorization: function() {
-    return execPromise("GeofenceStorage", "requestAlwaysAuthorization", []);
+    return execPromise(PLUGIN_NAME, "requestAlwaysAuthorization", []);
   },
-
   getCurrentLocation: function() {
-    return execPromise("GeofenceStorage", "getCurrentLocation", []);
+    return execPromise(PLUGIN_NAME, "getCurrentLocation", []);
   },
-
-  getRegisters: function() {
-    return execPromise("GeofenceStorage", "getRegisters", []);
-  },
-
-  getRegistersByGeofence: function(geofenceId) {
-    geofenceId = geofenceId.toString();
-    return execPromise("GeofenceStorage", "getRegistersByGeofence", [geofenceId]);
-  },
-
-  getGeofenceById: function(id) {
-    id = id.toString();
-    return execPromise("GeofenceStorage", "getGeofenceById", [id]);
-  },
-
-  addOrUpdateRegisters: function(registers) {
-    if (!Array.isArray(registers)) {
-      registers = [registers];
-    }
-
-    return execPromise("GeofenceStorage", "addOrUpdateRegisters", registers);
-  },
-
-  addOrUpdateGeofences: function(geofences) {
-    if (!Array.isArray(geofences)) {
-      geofences = [geofences];
-    }
-
-    return execPromise("GeofenceStorage", "addOrUpdateGeofences", geofences);
-  },
-
-  removeRegisters: function(ids) {
-    if (!Array.isArray(ids)) {
-      ids = [ids];
-    }
-
-    return execPromise("GeofenceStorage", "removeRegisters", ids);
-  },
-
-  removeGeofences: function(ids) {
-    if (!Array.isArray(ids)) {
-      ids = [ids];
-    }
-
-    return execPromise("GeofenceStorage", "removeGeofences", ids);
-  },
-
-  getGeofences: function() {
-    return execPromise("GeofenceStorage", "getGeofences", []);
-  },
-
   clearBadge: function() {
-    return execPromise("GeofenceStorage", "clearBadge", []);
-  }
+    return execPromise(PLUGIN_NAME, "clearBadge", []);
+  },
+  getBadge: function() {
+    return execPromise(PLUGIN_NAME, "getBadge", []);
+  },
+
+  /* INI REGISTERS */
+  getRegisters: function() {
+    return execPromise(PLUGIN_NAME, "getRegisters", []);
+  },
+  getRegistersByPointUUID: function(uuid) {
+    uuid = uuid.toString();
+    return execPromise(PLUGIN_NAME, "getRegistersByPointUUID", [uuid]);
+  },
+  getRegistersByFilters: function(pointUID, dtIni, dtEnd) {
+    pointUID = pointUID.toString();
+    return execPromise(PLUGIN_NAME, "getRegistersByFilters", [pointUID, dtIni, dtEnd]);
+  },
+  addOrUpdateRegister: function(register, pointUID, uid) {
+    return execPromise(PLUGIN_NAME, "addOrUpdateRegister", [register, pointUID, uid]);
+  },
+  removeRegister: function(pointUID, uid) {
+    return execPromise(PLUGIN_NAME, "removeRegister", [pointUID, uid]);
+  },
+  /* END REGISTERS */
+
+  /* INI POINTS */
+  getPointByUID: function(uid) {
+    return execPromise(PLUGIN_NAME, "getPointByUID", [uid]);
+  },
+  addOrUpdatePoint: function(point, uid) {
+    return execPromise(PLUGIN_NAME, "addOrUpdatePoint", [point, uid]);
+  },
+  removePoints: function(uuids) {
+    if (!Array.isArray(uuids)) {
+      uuids = [uuids];
+    }
+    return execPromise(PLUGIN_NAME, "removePoints", uuids);
+  },
+  getPoints: function() {
+    return execPromise(PLUGIN_NAME, "getPoints", []);
+  },
+  /* END POINTS */
 
 }
 

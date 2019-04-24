@@ -20,10 +20,10 @@
     <!-- ios -->
     <platform name="ios">
         <config-file target="*-Info.plist" parent="NSLocationAlwaysAndWhenInUseUsageDescription">
-            <string>${EXECUTABLE_NAME} Would Like to Use Your Current Location Even In Background.</string>
+            <string>${EXECUTABLE_NAME} precisa da sua localização quando o aplicativo está executando em segundo plado.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="NSLocationWhenInUseUsageDescription">
-            <string>${EXECUTABLE_NAME} Would Like to Use Your Current Location When In Use.</string>
+            <string>${EXECUTABLE_NAME} precisa da sua localização quando o aplicativo está em uso.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="UIBackgroundModes">
             <array>
@@ -36,15 +36,19 @@
           </feature>
         </config-file>
         <header-file src="src/ios/CPGS-Plugin-Bridging-Header.h" />
-        <source-file src="src/ios/CPGSSwiftData.swift"/>
         <source-file src="src/ios/CPGSSwiftyJson.swift"/>
-        <source-file src="src/ios/CPGSStore.swift"/>
-        <source-file src="src/ios/CPGSGeofenceStore.swift"/>
-        <source-file src="src/ios/CPGSRegisterStore.swift"/>
+        
+        <source-file src="src/ios/CPGSFirebase.swift"/>
+        <source-file src="src/ios/CPGSPointFirebase.swift"/>
+        <source-file src="src/ios/CPGSRegisterFirebase.swift"/>
+
         <source-file src="src/ios/CPGSManagerNotification.swift"/>
         <source-file src="src/ios/CPGSManagerGeofence.swift"/>
         <source-file src="src/ios/CPGSPlugin.swift"/>
-        <framework src="libsqlite3.dylib"/>
+
         <framework src="WebKit.framework" weak="true" />
+
+        <framework src="Firebase/Auth" type="podspec" spec="~> 5.0.1"/>
+        <framework src="Firebase/Database" type="podspec" spec="~> 5.0.1"/>
     </platform>
 </plugin>
