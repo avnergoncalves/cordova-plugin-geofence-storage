@@ -1,21 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
-<plugin xmlns="http://www.phonegap.com/ns/plugins/1.0" xmlns:m2="http://schemas.microsoft.com/appx/2013/manifest" xmlns:android="http://schemas.android.com/apk/res/android" id="cordova-plugin-geofence-storage" version="0.0.1">
-    <name>GeofenceStorage</name>
-    <description>Geofence Storage Plugin</description>
+<plugin  id="cordova-plugin-geofence-storage" version="0.0.1" xmlns="http://apache.org/cordova/ns/plugins/1.0">
+
+    <name>Geofence Storage Plugin</name>
     <license>Apache 2.0</license>
+    <description>Geofence Storage Plugin</description>
     <keywords>phonegap,background geolocation, geofence, storage</keywords>
     <repo>https://github.com/avnergoncalves/cordova-plugin-geofence-storage.git</repo>
     <issue>https://github.com/avnergoncalves/cordova-plugin-geofence-storage/issues</issue>
-    <engines>
-        <engine name="cordova" version=">=3.0.0" />
-    </engines>
-
-    <js-module src="www/geofence-storage.js" name="geofencestorage">
-        <clobbers target="window.geofencestorage"  />
-    </js-module>
-
-    <dependency id="cordova-plugin-add-swift-support" version="1.6.0" />
 
     <!-- ios -->
     <platform name="ios">
@@ -23,21 +15,29 @@
             <string>${EXECUTABLE_NAME} precisa da sua localização quando o aplicativo está executando em segundo plado.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="NSLocationWhenInUseUsageDescription">
-            <string>${EXECUTABLE_NAME} precisa da sua localização quando o aplicativo está em uso.</string>
+            <string>${EXECUTABLE_NAME} precisa da sua localização quando op aplicativo está em uso.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="UIBackgroundModes">
             <array>
                 <string>location</string>
             </array>
         </config-file>
+
         <config-file target="config.xml" parent="/*">
-          <feature name="GeofenceStorage">
-            <param name="ios-package" value="CPGSPlugin" onload="true" />
+          <feature name="geofencestorage">
+            <param name="ios-package" value="CPGSPlugin" />
+            <param name="onload" value="true" />
           </feature>
         </config-file>
+
+        <js-module name="geofencestorage" src="www/geofence-storage.js">
+          <clobbers target="window.geofencestorage" />
+        </js-module>
+
         <header-file src="src/ios/CPGS-Plugin-Bridging-Header.h" />
+
         <source-file src="src/ios/CPGSSwiftyJson.swift"/>
-        
+
         <source-file src="src/ios/CPGSFirebase.swift"/>
         <source-file src="src/ios/CPGSPointFirebase.swift"/>
         <source-file src="src/ios/CPGSRegisterFirebase.swift"/>
@@ -50,5 +50,7 @@
 
         <framework src="Firebase/Auth" type="podspec" spec="~> 5.0.1"/>
         <framework src="Firebase/Database" type="podspec" spec="~> 5.0.1"/>
+
+        <dependency id="cordova-plugin-add-swift-support" version="^2.0.1" />
     </platform>
 </plugin>
